@@ -161,8 +161,7 @@
 )
 
 ;; Helper function to initialize a specific token at a given index
-(define-private (initialize-token-at-index (portfolio-id uint) (tokens (list 10 principal)) (percentages (list
- 10 uint)) (index uint))
+(define-private (initialize-token-at-index (portfolio-id uint) (tokens (list 10 principal)) (percentages (list 10 uint)) (index uint))
     (if (< index (len tokens))
         (initialize-portfolio-asset
             index
@@ -204,45 +203,46 @@
     ;; Initialize second token (required minimum)
     (try! (initialize-token-at-index portfolio-id initial-tokens percentages u1))
     
-    ;; Initialize third token if it exists
+    ;; Initialize remaining tokens if they exist
     (if (> token-count u2)
         (try! (initialize-token-at-index portfolio-id initial-tokens percentages u2))
-        (ok true))
+        (ok true)
+    )
     
-    ;; Initialize fourth token if it exists
     (if (> token-count u3)
         (try! (initialize-token-at-index portfolio-id initial-tokens percentages u3))
-        (ok true))
+        (ok true)
+    )
     
-    ;; Initialize fifth token if it exists
     (if (> token-count u4)
-        (try! (initialize-token-at-index portfolio-id initial-tokens percentages u4))
-        (ok true))
+        (try! (initialize-token-at-index portfolio-id initial-tokens percentages u4)) 
+        (ok true)
+    )
     
-    ;; Initialize sixth token if it exists
     (if (> token-count u5)
         (try! (initialize-token-at-index portfolio-id initial-tokens percentages u5))
-        (ok true))
+        (ok true)
+    )
     
-    ;; Initialize seventh token if it exists
     (if (> token-count u6)
         (try! (initialize-token-at-index portfolio-id initial-tokens percentages u6))
-        (ok true))
+        (ok true)
+    )
     
-    ;; Initialize eighth token if it exists
     (if (> token-count u7)
         (try! (initialize-token-at-index portfolio-id initial-tokens percentages u7))
-        (ok true))
+        (ok true)
+    )
     
-    ;; Initialize ninth token if it exists
     (if (> token-count u8)
         (try! (initialize-token-at-index portfolio-id initial-tokens percentages u8))
-        (ok true))
+        (ok true)
+    )
     
-    ;; Initialize tenth token if it exists
     (if (> token-count u9)
         (try! (initialize-token-at-index portfolio-id initial-tokens percentages u9))
-        (ok true))
+        (ok true)
+    )
     
     ;; Update user's portfolio list
     (try! (add-to-user-portfolios tx-sender portfolio-id))
