@@ -80,3 +80,82 @@
 (define-read-only (get-user-portfolios (user principal))
     (default-to (list) (map-get? UserPortfolios user))
 )
+
+;; Calculates rebalancing requirements for a portfolio
+(define-read-only (calculate-rebalance-amounts (portfolio-id uint))
+    (let (
+        (portfolio (unwrap! (get-portfolio portfolio-id) ERR-INVALID-PORTFOLIO))
+        (total-value (get total-value portfolio))
+    )
+    (ok {
+        portfolio-id: portfolio-id,
+        total-value: total-value,
+        needs-rebalance: (> (- block-height (get last-rebalanced portfolio)) u144)
+    }))
+)
+
+;; PRIVATE FUNCTIONS
+
+;; Validates token ID within portfolio constraints
+(define-private (validate-token-id (portfolio-id uint) (token-id uint))
+    (let (
+        (portfolio (unwrap! (get-portfolio portfolio-id) false))
+    )
+    (and 
+        (< token-id MAX-TOKENS-PER-PORTFOLIO)
+        (< token-id (get token-count portfolio))
+        true
+    ))
+)
+
+;; Validates percentage is within valid range (0-10000 basis points)
+(define-private (validate-percentage (percentage uint))
+    (and (>= percentage u0) (<= percentage BASIS-POINTS))
+)
+
+;; Validates sum of portfolio percentages
+(define-private (validate-portfolio-percentages (percentages (list 10 uint)))
+    (let (
+        (total (fold + percentages u0))
+    )
+    (and 
+        ;; Check if total equals 100% (10000 basis points)
+        (is-eq total BASIS-POINTS)
+        ;; Check if each percentage is valid
+        (fold and 
+            (map validate-percentage percentages)
+            true)
+    ))
+)	
+
+;; Helper function for percentage validation
+(define-private (check-percentage-sum (current-percentage uint) (valid bool))
+    (and valid (validate-percentage current-percentage))
+)
+
+;; Adds portfolio ID to user's portfolio list
+(define-private (add-to-user-portfolios (user principal) (portfolio-id uint))
+    (let (
+        (current-portfolios (get-user-portfolios user))
+        (new-portfolios (unwrap! (as-max-len? (append current-portfolios portfolio-id) u20) ERR-USER-STORAGE-FAILED))
+    )
+    (map-set UserPortfolios user new-portfolios)
+    (ok true))
+)
+
+;; Initializes a new portfolio asset
+(define-private (initialize-portfolio-asset (index uint) (token principal) (percentage uint) (portfolio-id uint))
+    (if (>= percentage u0)
+        (begin
+            (map-set PortfolioAssets
+                {portfolio-id: portfolio-id, token-id: index}
+                {
+                    target-percentage: percentage,
+                    current-amount: u0,
+                    token-address: token
+                }
+            )
+            (ok true))
+        ERR-INVALID-TOKEN
+    )
+)
