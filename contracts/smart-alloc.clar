@@ -159,3 +159,100 @@
         ERR-INVALID-TOKEN
     )
 )
+
+;; Recursive function to initialize remaining tokens in a portfolio
+(define-private (initialize-remaining-tokens 
+    (portfolio-id uint) 
+    (tokens (list 10 principal)) 
+    (percentages (list 10 uint))
+    (start-index uint))
+    (let (
+        (token-count (len tokens))
+    )
+    (if (>= start-index token-count)
+        (ok true)
+        (begin
+            (try! (initialize-portfolio-asset
+                start-index
+                (unwrap! (element-at tokens start-index) ERR-INVALID-TOKEN)
+                (unwrap! (element-at percentages start-index) ERR-INVALID-PERCENTAGE)
+                portfolio-id))
+            (initialize-remaining-tokens portfolio-id tokens percentages (+ start-index u1)))))
+)
+
+;; Non-recursive approach to initialize additional tokens
+(define-private (initialize-additional-tokens 
+    (portfolio-id uint) 
+    (tokens (list 10 principal)) 
+    (percentages (list 10 uint))
+    (start-index uint)
+    (count uint))
+    (begin
+        (if (and (> count u0) (< start-index (len tokens)))
+            (begin
+                (try! (initialize-portfolio-asset
+                    start-index
+                    (unwrap! (element-at tokens start-index) ERR-INVALID-TOKEN)
+                    (unwrap! (element-at percentages start-index) ERR-INVALID-PERCENTAGE)
+                    portfolio-id))
+                (initialize-additional-tokens 
+                    portfolio-id 
+                    tokens 
+                    percentages 
+                    (+ start-index u1) 
+                    (- count u1)))
+            (ok true)))
+)
+
+;; PUBLIC FUNCTIONS
+
+;; Creates a new portfolio with specified tokens and allocations
+(define-public (create-portfolio (initial-tokens (list 10 principal)) (percentages (list 10 uint)))
+    (let (
+        (portfolio-id (+ (var-get portfolio-counter) u1))
+        (token-count (len initial-tokens))
+        (percentage-count (len percentages))
+    )
+    (asserts! (<= token-count MAX-TOKENS-PER-PORTFOLIO) ERR-MAX-TOKENS-EXCEEDED)
+    (asserts! (is-eq token-count percentage-count) ERR-LENGTH-MISMATCH)
+    (asserts! (validate-portfolio-percentages percentages) ERR-INVALID-PERCENTAGE)
+    (asserts! (>= token-count u2) ERR-INVALID-PORTFOLIO) ;; Ensure at least 2 tokens
+    
+    ;; Create portfolio
+    (map-set Portfolios portfolio-id
+        {
+            owner: tx-sender,
+            created-at: block-height,
+            last-rebalanced: block-height,
+            total-value: u0,
+            active: true,
+            token-count: token-count
+        }
+    )
+    
+    ;; Initialize first two tokens (required minimum)
+    (try! (initialize-portfolio-asset 
+        u0 
+        (unwrap! (element-at initial-tokens u0) ERR-INVALID-TOKEN)
+        (unwrap! (element-at percentages u0) ERR-INVALID-PERCENTAGE)
+        portfolio-id))
+    
+    (try! (initialize-portfolio-asset 
+        u1
+        (unwrap! (element-at initial-tokens u1) ERR-INVALID-TOKEN)
+        (unwrap! (element-at percentages u1) ERR-INVALID-PERCENTAGE)
+        portfolio-id))
+    
+    ;; Initialize remaining tokens if any (non-recursive approach)
+    (let ((remaining-count (- token-count u2)))
+        (if (> remaining-count u0)
+            (try! (initialize-additional-tokens portfolio-id initial-tokens percentages u2 remaining-count))
+            (ok true)))
+    
+    ;; Update user's portfolio list
+    (try! (add-to-user-portfolios tx-sender portfolio-id))
+    
+    ;; Increment counter
+    (var-set portfolio-counter portfolio-id)
+    (ok portfolio-id))
+)
